@@ -38,9 +38,12 @@ class Form(object):
         if x: o.validates(x)
         return o
     
-    def render(self):
+    def render(self, displaynote=True):
         out = ''
-        out += self.rendernote(self.note)
+
+        if displaynote:
+                out += self.rendernote(self.note)
+
         out += '<table>\n'
         
         for i in self.inputs:
@@ -52,9 +55,10 @@ class Form(object):
         out += "</table>"
         return out
         
-    def render_css(self): 
+    def render_css(self, displaynote=True):
         out = [] 
-        out.append(self.rendernote(self.note)) 
+        if displaynote:
+                out.append(self.rendernote(self.note)) 
         for i in self.inputs:
             if not i.is_hidden():
                 out.append('<label for="%s">%s</label>' % (i.id, net.websafe(i.description))) 
