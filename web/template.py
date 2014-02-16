@@ -832,6 +832,7 @@ class Template(BaseTemplate):
         '.html' : 'text/html; charset=utf-8',
         '.xhtml' : 'application/xhtml+xml; charset=utf-8',
         '.txt' : 'text/plain',
+        '.xml' : 'text/xml',
     }
     FILTERS = {
         '.html': websafe,
@@ -877,7 +878,6 @@ class Template(BaseTemplate):
         import webapi as web
         if 'headers' in web.ctx and self.content_type:
             web.header('Content-Type', self.content_type, unique=True)
-            
         return BaseTemplate.__call__(self, *a, **kw)
         
     def generate_code(text, filename, parser=None):
@@ -944,6 +944,11 @@ class CompiledTemplate(Template):
         return None
                 
 class Render:
+    CONTENT_TYPES = {
+        'text/plain' : 'txt',
+        'text/xml' : 'xml',
+        'application/xml' : 'xml'
+    }
     """The most preferred way of using templates.
     
         render = web.template.render('templates')
@@ -979,19 +984,19 @@ class Render:
             name = obj.__name__
         self._keywords['globals'][name] = obj
     
-    def _lookup(self, name):
+    def _lookup(self, name, extension):
         path = os.path.join(self._loc, name)
         if os.path.isdir(path):
             return 'dir', path
         else:
-            path = self._findfile(path)
+            path = self._findfile(path, extension)
             if path:
                 return 'file', path
             else:
                 return 'none', None
         
-    def _load_template(self, name):
-        kind, path = self._lookup(name)
+    def _load_template(self, name, extension):
+        kind, path = self._lookup(name, extension)
         
         if kind == 'dir':
             return Render(path, cache=self._cache is not None, base=self._base, **self._keywords)
@@ -1000,18 +1005,22 @@ class Render:
         else:
             raise AttributeError, "No template named " + name            
 
-    def _findfile(self, path_prefix): 
+    def _findfile(self, path_prefix, extension): 
+        if os.path.isfile("%s.%s" % (path_prefix, extension)):
+                return "%s.%s" % (path_prefix, extension)
         p = [f for f in glob.glob(path_prefix + '.*') if not f.endswith('~')] # skip backup files
         p.sort() # sort the matches for deterministic order
         return p and p[0]
             
     def _template(self, name):
+        import webapi as web
+        extension = self.CONTENT_TYPES.get(web.ctx.env.get('CONTENT_TYPE'), None)
         if self._cache is not None:
             if name not in self._cache:
-                self._cache[name] = self._load_template(name)
-            return self._cache[name]
+                self._cache["%s.%s" % (name, extension)] = self._load_template(name, extension)
+            return self._cache["%s.%s" % (name, extension)]
         else:
-            return self._load_template(name)
+            return self._load_template(name, extension)
         
     def __getattr__(self, name):
         t = self._template(name)
